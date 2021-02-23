@@ -1,0 +1,325 @@
+import java_cup.runtime.*;
+
+scan with {: return lexer.next_token(); :};
+
+parser code {:
+
+  static class ErrorInfo {
+    public int line;
+    public int column;
+
+    public ErrorInfo(int line, int column) {
+      this.line = line;
+      this.column = column;
+    }
+  }
+
+  Lexer lexer;
+
+  // used by SC.java to decide whether parsing is successful
+  public boolean syntaxErrors;
+
+  public Parser(Lexer lex) {
+      super(lex);
+      lexer = lex;
+  }
+
+  public void syntax_error(Symbol cur_token) {
+    this.syntaxErrors = true;
+  }
+
+  public void unrecovered_syntax_error(Symbol cur_token) throws java.lang.Exception {
+    this.syntaxErrors = true;
+    report_fatal_error(
+      "Syntax error at line " + (cur_token.left+1) + ", column "
+      + cur_token.right + ".\n", null
+    );
+  }
+
+  public void custom_err_report(String message, int line, int column)
+    throws java.lang.Exception
+  {
+    this.syntaxErrors = true;
+    report_fatal_error( message + "\n", new ErrorInfo(line, column) );
+  }
+
+:};
+
+terminal BOOL, INT, FLOAT, RAT, CHAR, STR, SEQ, DICT;
+terminal TOP, THREAD, FOR, OF, LEN, RANGE, TDEF, FDEF, ALIAS, RETURN, BREAK, WHILE, IF, ELSE, ELIF, READ, PRINT, MAIN, IN;
+terminal TRUE, FALSE, LPAREN, RPAREN, LBRACKET, RBRACKET, LBRACE, RBRACE, COLON, SEMICOLON, COMMA, DOT;
+terminal AND, OR, NOT, PLUS, MINUS, TIMES, DIVIDE, POWER, LESS, LESSEQ, GREATER, GREATEREQ, EQUAL, NOTEQUAL, ASSIGN;
+terminal ID, INTLITERAL, FLOATLITERAL, RATLITERAL, CHARLITERAL, STRLITERAL;
+terminal ILLEGAL_CHARACTER;
+terminal UMINUS, UPLUS;
+
+nonterminal   z_program,
+              declaration_list,
+              main_function,
+              declaration,
+              statement_list,
+              variable_declaration_statement,
+              datatype_declaration_statement,
+              function_declaration_statement,
+              alias_statement,
+              variable_declaration,
+              expression_list,
+              datatype_declaration,
+              function_declaration,
+              type_expression,
+              expression,
+              variable_declaration_list,
+              formal_parameter_list,
+              primitive_type_expression,
+              sequence_type_expression,
+              list_index_access_expression,
+              function_call_expression,
+              value,
+              literal,
+              bool_literal,
+              list_literal,
+              empty_list_literal,
+              statement,
+              primitive_type,
+              sequence_type,
+              assignment_statement,
+              input_statement,
+              print_statement,
+              function_call_statement,
+              if_statement,
+              if_elif_statement,
+              if_elif_else_statement,
+              if_else_statement,
+              loop_statement,
+              break_statement,
+              return_statement,
+              slicing_expression,
+              field_access_expression,
+              statement_with_break,
+              statement_with_break_list,
+              thread_statement,
+              dict_type_expression,
+              dict_type
+              ;
+
+
+
+precedence left FDEF;
+precedence nonassoc IF;
+precedence nonassoc ELIF;
+precedence nonassoc ELSE;
+
+precedence left OR;
+precedence left AND;
+precedence nonassoc EQUAL, NOTEQUAL;
+precedence nonassoc LESS, LESSEQ, GREATER, GREATEREQ, IN;
+precedence left PLUS, MINUS;
+precedence left DIVIDE, TIMES, POWER;
+precedence right NOT;
+precedence left LPAREN, RPAREN, LBRACKET, RBRACKET;
+precedence left DOT;
+precedence nonassoc COLON;
+
+start with z_program;
+
+z_program  ::= main_function
+           |   declaration_list main_function
+           ;
+
+
+declaration_list  ::= declaration
+                  |   declaration_list declaration 
+                  ;
+
+main_function ::= FDEF MAIN LPAREN RPAREN LBRACE statement_list RBRACE SEMICOLON;
+
+declaration ::= variable_declaration_statement
+            |   datatype_declaration_statement
+            |   function_declaration_statement
+            |   alias_statement
+            ;
+
+variable_declaration_statement  ::= variable_declaration SEMICOLON
+                                |   variable_declaration ASSIGN expression_list SEMICOLON
+                                ;
+
+datatype_declaration_statement  ::= datatype_declaration SEMICOLON;
+
+function_declaration_statement  ::= function_declaration SEMICOLON;
+
+alias_statement ::= ALIAS type_expression ID SEMICOLON;
+
+variable_declaration  ::= type_expression ID;
+
+expression_list ::= expression
+                |   expression COMMA expression_list
+                ;
+
+datatype_declaration  ::= TDEF ID LBRACE variable_declaration_list RBRACE;
+
+function_declaration  ::= FDEF ID LPAREN formal_parameter_list RPAREN LBRACE statement_list RBRACE
+                      |   FDEF type_expression ID LPAREN formal_parameter_list RPAREN LBRACE statement_list RBRACE 
+                      ;
+
+type_expression ::= primitive_type_expression
+                |   sequence_type_expression
+                |   dict_type_expression
+                |   ID
+                ;
+
+
+expression  ::= expression OR expression
+            |   expression AND expression
+            |   expression EQUAL expression
+            |   expression NOTEQUAL expression
+            |   expression LESS expression
+            |   expression GREATER expression
+            |   expression GREATEREQ expression
+            |   expression LESSEQ expression
+            |   expression IN expression
+            |   expression PLUS expression       
+            |   expression MINUS expression      
+            |   expression TIMES expression
+            |   expression DIVIDE expression
+            |   PLUS expression                %prec UPLUS
+            |   MINUS expression               %prec UMINUS
+            |   NOT expression
+            |   expression POWER expression
+            |   expression DOT ID
+            |   list_index_access_expression
+            |   function_call_expression
+            |   slicing_expression
+            |   LPAREN expression RPAREN
+            |   value
+            ;
+
+list_index_access_expression  ::= expression LBRACKET expression RBRACKET;
+
+function_call_expression  ::= ID LPAREN expression_list RPAREN
+                          |   ID LPAREN RPAREN
+                          ;
+
+slicing_expression  ::= expression COLON expression
+                    |   COLON expression
+                    |   expression COLON
+                    |   COLON
+                    ;
+
+value ::= ID
+      |   literal
+      ;
+
+literal ::= INTLITERAL
+        |   FLOATLITERAL
+        |   RATLITERAL
+        |   CHARLITERAL
+        |   STRLITERAL
+        |   bool_literal
+        |   list_literal
+        |   LEN LPAREN ID RPAREN
+        ;
+
+bool_literal  ::= TRUE
+              |   FALSE
+              ;
+
+list_literal  ::= empty_list_literal
+              |   LBRACKET expression_list RBRACKET
+              ;
+
+empty_list_literal  ::= LBRACKET RBRACKET;
+
+variable_declaration_list ::= variable_declaration
+                          |   variable_declaration COMMA variable_declaration_list
+                          ;
+
+formal_parameter_list ::= variable_declaration_list
+                      |
+                      ;
+
+statement_list  ::= statement
+                |   statement statement_list
+                ;
+primitive_type_expression ::= primitive_type;
+
+sequence_type_expression  ::= SEQ LESS sequence_type GREATER;
+
+dict_type_expression ::= DICT LESS dict_type COMMA dict_type GREATER;
+
+statement ::= variable_declaration_statement
+          |   datatype_declaration_statement
+          |   function_declaration_statement
+          |   assignment_statement
+          |   alias_statement
+          |   input_statement
+          |   print_statement
+          |   function_call_statement
+          |   loop_statement
+          |   return_statement
+          |   if_statement
+          |   if_elif_statement
+          |   if_else_statement
+          |   if_elif_else_statement
+          |   thread_statement
+          ;
+
+if_statement  ::= IF LPAREN expression RPAREN LBRACE statement_with_break_list RBRACE;
+
+if_elif_statement ::= IF LPAREN expression RPAREN LBRACE statement_with_break_list RBRACE ELIF LPAREN expression RPAREN LBRACE statement_with_break_list RBRACE;
+
+if_else_statement ::= IF LPAREN expression RPAREN LBRACE statement_with_break_list RBRACE ELSE LBRACE statement_with_break_list RBRACE;
+
+if_elif_else_statement ::= IF LPAREN expression RPAREN LBRACE statement_with_break_list RBRACE ELIF LPAREN expression RPAREN LBRACE statement_with_break_list RBRACE ELSE LBRACE statement_with_break_list RBRACE;
+
+primitive_type  ::= BOOL
+                |   INT
+                |   RAT
+                |   FLOAT
+                |   CHAR
+                |   STR
+                ;
+
+sequence_type   ::= sequence_type_expression
+                |   primitive_type_expression
+                |   TOP
+                |   ID
+                ;
+dict_type ::=  sequence_type_expression
+          |   primitive_type_expression
+          |   dict_type_expression
+          |   TOP
+          |   ID
+          ;
+
+assignment_statement  ::= field_access_expression ASSIGN expression SEMICOLON;
+
+field_access_expression ::= field_access_expression DOT ID
+                        |   ID
+                        ;
+
+thread_statement ::= THREAD ID ASSIGN LBRACE statement_list RBRACE SEMICOLON;
+
+input_statement ::= READ ID SEMICOLON;
+
+print_statement ::= PRINT expression SEMICOLON;
+
+function_call_statement ::= function_call_expression SEMICOLON;
+
+statement_with_break  ::=  statement
+                      |    break_statement
+                      ;
+
+statement_with_break_list ::= statement_with_break
+                          |   statement_with_break  statement_with_break_list 
+                          ;
+
+loop_statement  ::= WHILE LBRACE statement_with_break_list RBRACE;
+
+break_statement ::= BREAK SEMICOLON
+                |   BREAK INTLITERAL SEMICOLON
+                ;
+
+return_statement  ::= RETURN expression_list SEMICOLON
+                  |   RETURN SEMICOLON
+                  |   RETURN LPAREN expression_list RPAREN SEMICOLON
+                  ;
